@@ -8,6 +8,8 @@
     "react-router-dom": "^4.0.0"
   },
   "devDependencies": {
+    "eslint": "^3.18.0",
+    "eslint-plugin-react": "^6.10.3",
     "react-scripts": "0.9.5"
   },
   "scripts": {
