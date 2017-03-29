@@ -12,57 +12,6 @@ export default class Game extends React.Component {
     this.engine = new Chess();
   }
 
-  componentDidMount() {
-    const token = this.state.token;
-    const engine = this.engine;
-
-    listenForUpdates(token, (id, game) => {
-
-      const playerNum = figurePlayer(token, game);
-      this.engine.load(game.fen || INITIAL_FEN);
-
-      const onDragStart = (source, piece) => {
-        return !engine.game_over() &&
-          isMyTurn(playerNum, engine.turn()) &&
-          allowMove(engine.turn(), piece);
-      };
-
-      const onDrop = (source, target) => {
-        const m = engine.move({
-          from: source,
-          to: target,
-          promotion: 'q'
-        });
-        if (m === null) return "snapback";
-
-        game.fen = engine.fen();
-        game.moves = pushMove(game.moves, `${m['from']}-${m['to']}`);
-
-        games(id).set(game);
-      };
-
-      const onSnapEnd = () => {
-        return this.board.position(engine.fen());
-      };
-
-      if (!this.board) {
-        this.board = initBoard(playerNum, onDragStart, onDrop, onSnapEnd);
-        this.board.position(engine.fen());
-      } else if (isMyTurn(playerNum, engine.turn())) {
-        this.board.position(engine.fen());
-      }
-
-      this.setState({
-        moves: game.moves.split(","),
-        p1_token: game.p1_token,
-        p2_token: game.p2_token,
-        turnText: turnText(playerNum, isMyTurn(playerNum, engine.turn())),
-        statusText: statusText(engine.turn(), engine.in_checkmate(), engine.in_draw(), engine.in_check())
-      });
-
-    });
-  }
-
   render() {
     return (
       <div className='view row'>
@@ -83,22 +32,80 @@ export default class Game extends React.Component {
       </div>
     );
   }
-}
 
-function initBoard(playerNum, onDragStart, onDrop, onSnapEnd) {
-  const config = {
-    draggable: true,
-    pieceTheme: "https://s3-us-west-2.amazonaws.com/chessimg/{piece}.png",
-    onDragStart: onDragStart,
-    onDrop: onDrop,
-    onSnapEnd: onSnapEnd
-  };
-
-  const board = ChessBoard('game-board', config);
-  if (playerNum === 2) {
-    board.orientation('black');
+  componentDidMount() {
+    listenForUpdates(this.state.token, (id, game) => {
+      this._updateBoard(id, game);
+      this._updateInfo(game);
+    });
   }
-  return board;
+
+  _updateInfo(game) {
+    const engine = this.engine;
+    const playerNum = figurePlayer(this.state.token, game);
+    this.setState({
+      moves: game.moves.split(","),
+      p1_token: game.p1_token,
+      p2_token: game.p2_token,
+      turnText: turnText(playerNum, isMyTurn(playerNum, engine.turn())),
+      statusText: statusText(engine.turn(), engine.in_checkmate(), engine.in_draw(), engine.in_check())
+    });
+  }
+
+  _updateBoard(id, game) {
+    const playerNum = figurePlayer(this.state.token, game);
+    this.engine.load(game.fen || INITIAL_FEN);
+
+    if (!this.board) {
+      this.board = this._initBoard(id, game);
+      this.board.position(this.engine.fen());
+    } else if (isMyTurn(playerNum, this.engine.turn())) {
+      this.board.position(this.engine.fen());
+    }
+  }
+
+  _initBoard(id, game) {
+    const token = this.state.token;
+    const engine = this.engine;
+    const playerNum = figurePlayer(token, game);
+    const config = {
+      draggable: true,
+      pieceTheme: "https://s3-us-west-2.amazonaws.com/chessimg/{piece}.png",
+      onDragStart: onDragStart,
+      onDrop: onDrop,
+      onSnapEnd: onSnapEnd
+    };
+
+    const board = ChessBoard('game-board', config);
+    if (playerNum === 2) {
+      board.orientation('black');
+    }
+    return board;
+
+    function onDragStart(source, piece) {
+      return !engine.game_over() &&
+        isMyTurn(playerNum, engine.turn()) &&
+        allowMove(engine.turn(), piece);
+    }
+
+    function onDrop(source, target) {
+      const m = engine.move({
+        from: source,
+        to: target,
+        promotion: 'q'
+      });
+      if (m === null) return "snapback";
+
+      game.fen = engine.fen();
+      game.moves = pushMove(game.moves, `${m['from']}-${m['to']}`);
+
+      games(id).set(game);
+    }
+
+    function onSnapEnd() {
+      return this.board.position(engine.fen());
+    }
+  }
 }
 
 function history(moves = []) {
@@ -106,16 +113,14 @@ function history(moves = []) {
 }
 
 function listenForUpdates(token, cb) {
-
-  gameByToken("p1_token", token).on('value', (ref) => {
-    const [id, game] = parse(ref.val());
-    if (!id) return;
-    cb(id, game);
-  });
-  gameByToken("p2_token", token).on('value', (ref) => {
-    const [id, game] = parse(ref.val());
-    if (!id) return;
-    cb(id, game);
+  const db = firebase.database().ref("/games");
+  ["p1_token", "p2_token"].forEach((name) => {
+    const ref = db.orderByChild(name).equalTo(token);
+    ref.on('value', (ref) => {
+      const [id, game] = parse(ref.val());
+      if (!id) return;
+      cb(id, game);
+    });
   });
 }
 
@@ -125,13 +130,6 @@ function parse(tree) {
   const id = keys[0];
   const game = tree[id];
   return [id, game];
-}
-
-function gameByToken(key, token) {
-  const db = firebase.database().ref("/games");
-  return db
-    .orderByChild(key)
-    .equalTo(token);
 }
 
 function games(id) {
