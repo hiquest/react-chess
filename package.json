@@ -19,6 +19,6 @@
     "build": "react-scripts build",
     "test": "react-scripts test --env=jsdom",
     "eject": "react-scripts eject",
-    "deploy": "node deploy.js"
+    "deploy": "npm run build && node deploy.js"
   }
 }
