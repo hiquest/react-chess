@@ -20,8 +20,8 @@ export default class Game extends React.Component {
         </div>
         <div className='column column-50'>
           <div className="links">
-            <div>Player 1: <a href={domain() + "/" + this.state.p1_token}>{domain()}/{this.state.p1_token}</a></div>
-            <div>Player 2: <a href={domain() + "/" + this.state.p2_token}>{domain()}/{this.state.p2_token}</a></div>
+            <div>Player 1: <a href={domain() + "/#/" + this.state.p1_token}>{domain()}/#/{this.state.p1_token}</a></div>
+            <div>Player 2: <a href={domain() + "/#/" + this.state.p2_token}>{domain()}/#/{this.state.p2_token}</a></div>
           </div>
           <blockquote>
             <h5 className='turn'>{ this.state.turnText }</h5>
@@ -44,7 +44,7 @@ export default class Game extends React.Component {
     const engine = this.engine;
     const playerNum = figurePlayer(this.state.token, game);
     this.setState({
-      moves: game.moves.split(","),
+      moves: game.moves ? game.moves.split(",") : [],
       p1_token: game.p1_token,
       p2_token: game.p2_token,
       turnText: turnText(playerNum, isMyTurn(playerNum, engine.turn())),
@@ -103,7 +103,7 @@ export default class Game extends React.Component {
     }
 
     function onSnapEnd() {
-      return this.board.position(engine.fen());
+      return board.position(engine.fen());
     }
   }
 }
@@ -140,7 +140,11 @@ function games(id) {
 
 function domain() {
   const { hostname, port } = window.location;
-  return `http://${hostname}:${port}`;
+  if (port) {
+    return `http://${hostname}:${port}`;
+  } else {
+    return `http://${hostname}`;
+  }
 }
 
 function pushMove(moves, move) {

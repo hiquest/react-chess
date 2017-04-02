@@ -25,7 +25,7 @@ function createGame() {
   game
     .set(newGame)
     .then(() => {
-      window.location = `/${newGame.p1_token}`;
+      window.location.hash = `#/${newGame.p1_token}`;
     }, (err) => {
       throw err;
     });
